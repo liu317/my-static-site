@@ -377,7 +377,7 @@
                 ⚠️ <b>距离校准：</b><br>
                 请确保眼睛距离屏幕 <b>1米</b>。<br>
                 支持语音指令：<br>
-                <span style="color:var(--primary-color); font-weight:bold;">“上、下、左、右、看不清”</span>
+                <span style="color:var(--primary-color); font-weight:bold;">“向上、向下、向左、向右、看不清”</span>
             </div>
             <button class="btn" onclick="startSelection()">开始</button>
         </div>
@@ -541,11 +541,15 @@
                 // 如果当前正在处理上一个指令，或者不在测试页，直接忽略
                 if (isProcessingCommand || !state.isVoiceActive) return;
 
-                // 遍历返回的结果（包含临时结果）
+                // 只处理最终结果（isFinal: true），避免一句话触发多次
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const transcript = event.results[i][0].transcript.trim();
+                    const result = event.results[i];
+                    // 只处理最终结果，忽略临时结果
+                    if (!result.isFinal) continue;
 
-                    // 只要捕捉到关键词，立刻执行，不等待句子结束
+                    const transcript = result[0].transcript.trim();
+
+                    // 处理最终结果，确保一句话只处理一次
                     if (checkAndTrigger(transcript)) {
                         return; // 触发成功，跳出循环
                     }
@@ -574,31 +578,64 @@
             }
         }
 
-        // 辅助函数：检测关键词并触发
+        // 辅助函数：检测关键词并触发（严格单指令版）
+        // 辅助函数：检测关键词并触发（严格单指令版）
         function checkAndTrigger(text) {
-            let direction = null;
+            // 定义指令映射表
+            const cmdMap = {
+                '向上': 'up',
+                '向下': 'down',
+                '向左': 'left',
+                '向右': 'right',
+                '看不清': 'cannotSee',
+                '不知道': 'cannotSee' // 兼容“不知道”
+            };
 
-            // 模糊匹配逻辑
-            if (text.includes('上') || text.includes('顶')) direction = 'up';
-            else if (text.includes('下') || text.includes('底')) direction = 'down';
-            else if (text.includes('左')) direction = 'left';
-            else if (text.includes('右')) direction = 'right';
-            else if (text.includes('不') || text.includes('没') || text.includes('看不清')) {
-                // 特殊处理“看不清”
-                executeCommand(() => handleCannotSee(), "看不清");
-                return true;
+            // 1. 统计当前文本中包含了哪些指令
+            // 例如：text="向上向下" -> foundKeywords=["向上", "向下"]
+            const foundKeywords = [];
+            for (const key in cmdMap) {
+                if (text.includes(key)) {
+                    // 避免“看不清”和“不”重复匹配的问题，这里采用完整词匹配
+                    foundKeywords.push(key);
+                }
             }
 
-            if (direction) {
-                executeCommand(() => handleInput(direction), text);
-                return true;
+            // 2. 严格校验逻辑
+            // 情况A: 没有听到任何指令 -> 忽略
+            if (foundKeywords.length === 0) return false;
+
+            // 情况B: 听到了两个及以上的指令 (例如 "向上下", "左边右边") -> 忽略
+            if (foundKeywords.length > 1) {
+                console.log(">>> 忽略连续/模糊指令:", text);
+                // 可以在这里添加一个轻微的提示，或者什么都不做让用户重说
+                return false;
             }
-            return false;
+
+            // 情况C: 只有唯一一个指令 -> 执行
+            const distinctCmd = foundKeywords[0];
+            const actionType = cmdMap[distinctCmd];
+
+            // 再次确认：防止出现像 "向上下" 这种虽然包含"向上"但紧接着"下"的情况
+            // 虽然上面的 length > 1 已经过滤了大部分，但为了保险，
+            // 确保不包含其他互斥词（这一步在上面循环中其实已经覆盖了，这里直接执行即可）
+
+            if (actionType === 'cannotSee') {
+                executeCommand(() => handleCannotSee(), distinctCmd);
+            } else {
+                executeCommand(() => handleInput(actionType), distinctCmd);
+            }
+
+            return true;
         }
 
         // 执行指令并添加冷却时间
         function executeCommand(action, feedbackText) {
-            // 1. 上锁
+            // 1. 上锁（双重检查，确保不会重复处理）
+            if (isProcessingCommand) {
+                console.log(">>> 忽略重复指令:", feedbackText);
+                return;
+            }
             isProcessingCommand = true;
 
             // 2. 显示反馈
@@ -608,11 +645,11 @@
             // 3. 执行动作
             action();
 
-            // 4. 设置冷却时间 (1.2秒后解锁)
-            // 这个时间刚好够E字表切换动画完成，防止用户读得太快
+            // 4. 设置冷却时间 (1.5秒后解锁)
+            // 增加冷却时间，确保一次语音识别结果只处理当前题目
             setTimeout(() => {
                 isProcessingCommand = false;
-            }, 1200);
+            }, 1500);
         }
         function startVoice() {
             if (!recognition) initSpeechRecognition();
@@ -657,7 +694,7 @@
             else if (text.includes('下') || text.includes('底')) handleInput('down');
             else if (text.includes('左')) handleInput('left');
             else if (text.includes('右')) handleInput('right');
-            else if (text.includes('不') || text.includes('看不清') || text.includes('不知道')) {
+            else if (text.includes('不') || cmd === '看不清' || text.includes('不知道')) {
                 handleCannotSee();
             }
         }
