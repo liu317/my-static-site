@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智能语音视力筛查系统</title>
+    <style>
+        :root {
+            --primary-color: #2D9CDB;
+            --success-color: #27ae60;
+            --error-color: #e74c3c;
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            background: var(--card-bg);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+        }
+
+        header {
+            background: var(--primary-color);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.1rem;
+            flex: 1;
+        }
+
+        .page {
+            display: none;
+            flex: 1;
+            padding: 20px;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 10px;
+            text-align: center;
+            transition: 0.2s;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+        }
+
+        .btn-outline {
+            background: white;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* --- 视力测试 E 字表 --- */
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+            align-items: center;
+        }
+
+        /* 当前眼睛指示器 */
+        .eye-indicator {
+            background: #e1f0fa;
+            color: var(--primary-color);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        /* 语音状态指示器 */
+        .mic-status {
+            font-size: 1.2rem;
+            color: #ccc;
+            margin-left: 10px;
+            animation: pulse 1.5s infinite;
+            display: none;
+            /* 默认隐藏 */
+        }
+
+        .mic-status.listening {
+            color: var(--error-color);
+            display: block;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.5;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.1);
+            }
+
+            100% {
+                opacity: 0.5;
+                transform: scale(1);
+            }
+        }
+
+        .test-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        #optotype {
+            font-family: sans-serif;
+            font-weight: 900;
+            line-height: 1;
+            display: inline-block;
+            transition: transform 0.05s;
+        }
+
+        /* 状态指示点 */
+        .status-dots {
+            display: flex;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ddd;
+        }
+
+        .dot.success {
+            background: var(--success-color);
+        }
+
+        .dot.fail {
+            background: var(--error-color);
+        }
+
+        /* 控制盘 */
+        .control-pad {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #eee;
+        }
+
+        .dir-btn {
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            height: 60px;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        .dir-btn:active {
+            background: #eee;
+            box-shadow: none;
+            transform: translateY(3px);
+        }
+
+        .btn-up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .btn-left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .btn-right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .btn-down {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        /* --- 散光测试 (SVG) --- */
+        .astigmatism-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            background: #fff;
+        }
+
+        #astigmatism-svg {
+            width: 300px;
+            height: 300px;
+            max-width: 90vw;
+            max-height: 90vw;
+        }
+
+        /* --- 报告与反馈 --- */
+        .report-card {
+            background: #f8faff;
+            border-left: 5px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .interim-result-box {
+            text-align: center;
+            padding: 30px;
+            background: #eefcf5;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .result-value {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+
+        /* 浮动反馈动画 */
+        .feedback-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5rem;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @keyframes popFade {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+
+        .feedback-overlay.animate {
+            animation: popFade 0.6s ease-out;
+        }
+
+        .back-btn {
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <span class="back-btn" onclick="goToIndex()">🏠</span>
+            <h1>视力筛查</h1>
+            <span id="globalMicIcon" style="font-size:1.2rem; display:none;">🎙️</span>
+        </header>
+
+        <div id="page-home" class="page active">
+            <div class="form-group">
+                <label>受测者姓名</label>
+                <input type="text" id="userName" placeholder="请输入姓名">
+            </div>
+            <div class="form-group">
+                <label>受测者年龄</label>
+                <input type="number" id="userAge" placeholder="例如：8">
+            </div>
+            <div style="background:#fff3cd; padding:15px; border-radius:8px; font-size:0.95rem; margin-bottom:20px;">
+                ⚠️ <b>距离校准：</b><br>
+                请确保眼睛距离屏幕 <b>1米</b>。<br>
+                支持语音指令：<br>
+                <span style="color:var(--primary-color); font-weight:bold;">“上、下、左、右、看不清”</span>
+            </div>
+            <button class="btn" onclick="startSelection()">开始</button>
+        </div>
+
+        <div id="page-select" class="page">
+            <h2 style="text-align:center; margin-bottom:30px;">选择测试项目</h2>
+            <button class="btn" onclick="initTestFlow('acuity')">🅰️ 视力表测试 (E字)</button>
+            <p style="text-align:center; font-size:0.8rem; color:#666; margin-top:5px;">包含语音识别功能</p>
+
+            <button class="btn btn-outline" style="margin-top:30px;" onclick="initTestFlow('astigmatism')">☀️
+                散光自测图</button>
+        </div>
+
+        <div id="page-instruction" class="page">
+            <div style="text-align: center; margin-top: 40px;">
+                <div style="font-size: 4rem; margin-bottom: 20px;">👁️</div>
+                <h2 id="instructTitle">准备测试右眼</h2>
+                <p id="instructText" style="margin: 20px 0; font-size: 1.1rem; color: #555;">请使用眼罩或手掌<br>完全遮挡您的
+                    <b>左眼</b>
+                </p>
+                <button class="btn" onclick="startCurrentEyeTest()">我准备好了</button>
+            </div>
+        </div>
+
+        <div id="page-acuity" class="page" style="padding:0;">
+            <div class="test-header">
+                <div class="eye-indicator" id="acuityEyeLabel">右眼 (OD)</div>
+                <div style="display:flex; align-items:center;">
+                    <span>等级: <b id="currentLevelTxt">4.0</b></span>
+                    <span id="acuityMicStatus" class="mic-status">🎙️</span>
+                </div>
+                <div class="status-dots" id="progressDots"></div>
+            </div>
+
+            <div class="test-area">
+                <div id="optotype">E</div>
+                <div id="feedbackIcon" class="feedback-overlay">✅</div>
+                <div id="voiceFeedback"
+                    style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.6); color:white; padding:4px 10px; border-radius:10px; font-size:0.8rem; display:none;">
+                    听到: --
+                </div>
+            </div>
+
+            <div class="control-pad">
+                <div class="dir-btn btn-up" onclick="handleInput('up')">⬆️</div>
+                <div class="dir-btn btn-left" onclick="handleInput('left')">⬅️</div>
+                <div class="dir-btn btn-right" onclick="handleInput('right')">➡️</div>
+                <div class="dir-btn btn-down" onclick="handleInput('down')">⬇️</div>
+            </div>
+            <div style="padding: 15px 20px; text-align: center;">
+                <button class="btn" onclick="handleCannotSee()"
+                    style="width: auto; padding: 12px 30px; font-size: 1rem; background: var(--error-color); border-color: var(--error-color); font-weight: bold;">
+                    👁️‍🗨️ 看不清
+                </button>
+            </div>
+        </div>
+
+        <div id="page-astigmatism" class="page">
+            <h3 style="text-align:center; margin-bottom:10px;">散光筛查</h3>
+            <div style="text-align:center; margin-bottom:10px;">
+                <span class="eye-indicator" id="astigEyeLabel">正在测试：右眼</span>
+            </div>
+
+            <div class="astigmatism-container">
+                <svg id="astigmatism-svg" viewBox="0 0 200 200">
+                    <g id="svg-lines"></g>
+                    <circle cx="100" cy="100" r="3" fill="black" />
+                </svg>
+            </div>
+
+            <div style="text-align:center;">
+                <p style="font-weight:bold; margin-bottom:15px;">您看到的线条是否粗细均匀？</p>
+                <button class="btn" onclick="finishCurrentEye(false)">✅ 均匀一致 (清晰)</button>
+                <button class="btn btn-outline" style="margin-top:15px;" onclick="finishCurrentEye(true)">❌ 有深有浅
+                    (模糊)</button>
+            </div>
+        </div>
+
+        <div id="page-interim" class="page">
+            <h2 style="text-align:center; margin-top:20px;">右眼测试完成</h2>
+            <div class="interim-result-box">
+                <p>右眼结果</p>
+                <h1 id="interimValue" style="color:var(--primary-color); font-size:2.5rem; margin:10px 0;">--</h1>
+            </div>
+            <button class="btn" onclick="prepareLeftEye()">⬅️ 继续测左眼 (推荐)</button>
+            <button class="btn btn-secondary"
+                style="margin-top:15px; background:white; color:#666; border:1px solid #ddd;"
+                onclick="showFinalReport()">跳过左眼，查看报告</button>
+        </div>
+
+        <div id="page-result" class="page">
+            <h2 style="text-align:center; margin-bottom:20px;">双眼检测报告</h2>
+            <div class="report-card">
+                <p style="margin-bottom:10px;"><strong>受测者姓名：</strong> <span id="resName">--</span></p>
+                <p style="margin-bottom:10px;"><strong>受测者年龄：</strong> <span id="resAge">--</span></p>
+                <div class="result-row">
+                    <span>👁️ 右眼 (OD)</span>
+                    <span id="resRight" class="result-value">--</span>
+                </div>
+                <div class="result-row" style="border-bottom:none;">
+                    <span>👁️ 左眼 (OS)</span>
+                    <span id="resLeft" class="result-value">--</span>
+                </div>
+            </div>
+            <div class="report-card" style="border-left-color: #f39c12; background:#fffbf2;">
+                <p><strong>💡 分析与建议：</strong></p>
+                <p id="resAdvice" style="margin-top:5px; line-height:1.5;">--</p>
+            </div>
+            <button class="btn" onclick="location.reload()">返回首页</button>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const CONFIG = {
+            passRequired: 3,
+            failLimit: 2
+        };
+
+        const ACUITY_DATA = [
+            { label: "4.0 (0.1)", px: 150 },
+            { label: "4.3 (0.2)", px: 75 },
+            { label: "4.5 (0.3)", px: 50 },
+            { label: "4.7 (0.5)", px: 30 },
+            { label: "4.8 (0.6)", px: 25 },
+            { label: "5.0 (1.0)", px: 15 },
+            { label: "5.1 (1.2)", px: 12 },
+            { label: "5.2 (1.5)", px: 10 },
+            { label: "5.3 (2.0)", px: 7.5 }
+        ];
+
+        let state = {
+            name: '', age: 0, testType: '', currentEye: 'right',
+            results: { right: null, left: null },
+            acuityIndex: 0, levelCorrect: 0, levelWrong: 0, currentDirection: '',
+            isVoiceActive: false // 标记语音是否激活
+        };
+
+        // --- 语音识别配置 ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        // --- 极速版语音识别配置 ---
+        // 防抖锁：防止一次识别触发多次
+        let isProcessingCommand = false;
+
+        function initSpeechRecognition() {
+            if (!SpeechRecognition) {
+                console.warn("浏览器不支持 Speech API");
+                return;
+            }
+            recognition = new SpeechRecognition();
+            recognition.lang = 'zh-CN';
+
+            // ★★★ 关键修改 1：开启连续模式 + 开启临时结果 ★★★
+            recognition.continuous = true;
+            recognition.interimResults = true; // 允许返回还没说完的临时结果
+
+            recognition.onresult = (event) => {
+                // 如果当前正在处理上一个指令，或者不在测试页，直接忽略
+                if (isProcessingCommand || !state.isVoiceActive) return;
+
+                // 遍历返回的结果（包含临时结果）
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    const transcript = event.results[i][0].transcript.trim();
+
+                    // 只要捕捉到关键词，立刻执行，不等待句子结束
+                    if (checkAndTrigger(transcript)) {
+                        return; // 触发成功，跳出循环
+                    }
+                }
+            };
+
+            recognition.onend = () => {
+                if (state.isVoiceActive) {
+                    console.log("语音断开，极速重连...");
+                    try { recognition.start(); } catch (e) { }
+                } else {
+                    updateMicUI(false);
+                }
+            };
+
+            recognition.onerror = (e) => {
+                // 忽略 no-speech 错误，这是正常的静音
+                if (e.error !== 'no-speech') {
+                    console.error("语音错误:", e.error);
+                }
+                if (e.error === 'not-allowed') {
+                    alert("请允许麦克风权限");
+                    state.isVoiceActive = false;
+                    updateMicUI(false);
+                }
+            }
+        }
+
+        // 辅助函数：检测关键词并触发
+        function checkAndTrigger(text) {
+            let direction = null;
+
+            // 模糊匹配逻辑
+            if (text.includes('上') || text.includes('顶')) direction = 'up';
+            else if (text.includes('下') || text.includes('底')) direction = 'down';
+            else if (text.includes('左')) direction = 'left';
+            else if (text.includes('右')) direction = 'right';
+            else if (text.includes('不') || text.includes('没') || text.includes('看不清')) {
+                // 特殊处理“看不清”
+                executeCommand(() => handleCannotSee(), "看不清");
+                return true;
+            }
+
+            if (direction) {
+                executeCommand(() => handleInput(direction), text);
+                return true;
+            }
+            return false;
+        }
+
+        // 执行指令并添加冷却时间
+        function executeCommand(action, feedbackText) {
+            // 1. 上锁
+            isProcessingCommand = true;
+
+            // 2. 显示反馈
+            showVoiceFeedback(feedbackText);
+            console.log(">>> 极速响应:", feedbackText);
+
+            // 3. 执行动作
+            action();
+
+            // 4. 设置冷却时间 (1.2秒后解锁)
+            // 这个时间刚好够E字表切换动画完成，防止用户读得太快
+            setTimeout(() => {
+                isProcessingCommand = false;
+            }, 1200);
+        }
+        function startVoice() {
+            if (!recognition) initSpeechRecognition();
+            if (recognition && !isListening) {
+                state.isVoiceActive = true;
+                isListening = true;
+                try {
+                    recognition.start();
+                    updateMicUI(true);
+                } catch (e) {
+                    console.log("已在运行");
+                }
+            }
+        }
+
+        function stopVoice() {
+            if (recognition) {
+                state.isVoiceActive = false;
+                isListening = false;
+                recognition.stop();
+                updateMicUI(false);
+            }
+        }
+
+        function updateMicUI(isActive) {
+            const micIcon = document.getElementById('acuityMicStatus');
+            if (isActive) micIcon.classList.add('listening');
+            else micIcon.classList.remove('listening');
+        }
+
+        function showVoiceFeedback(text) {
+            const el = document.getElementById('voiceFeedback');
+            el.innerText = `听到: "${text}"`;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 2000);
+        }
+
+        // 处理语音逻辑
+        function processVoiceCommand(text) {
+            // 简单关键词匹配
+            if (text.includes('上') || text.includes('顶')) handleInput('up');
+            else if (text.includes('下') || text.includes('底')) handleInput('down');
+            else if (text.includes('左')) handleInput('left');
+            else if (text.includes('右')) handleInput('right');
+            else if (text.includes('不') || text.includes('看不清') || text.includes('不知道')) {
+                handleCannotSee();
+            }
+        }
+
+        // --- 初始化 SVG ---
+        function initSvgChart() {
+            const group = document.getElementById('svg-lines');
+            if (group.children.length > 0) return;
+            for (let i = 0; i < 36; i++) {
+                const angle = i * 10;
+                const rad = angle * (Math.PI / 180);
+                const x1 = 100 + 25 * Math.cos(rad);
+                const y1 = 100 + 25 * Math.sin(rad);
+                const x2 = 100 + 75 * Math.cos(rad);
+                const y2 = 100 + 75 * Math.sin(rad);
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+                line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+                line.setAttribute("stroke", "black");
+                line.setAttribute("stroke-width", "2");
+                group.appendChild(line);
+            }
+        }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        // 1. 开始流程
+        function startSelection() {
+            if (!document.getElementById('userName').value) return alert('请输入姓名');
+            if (!document.getElementById('userAge').value) return alert('请输入年龄');
+            state.name = document.getElementById('userName').value;
+            state.age = document.getElementById('userAge').value;
+            showPage('page-select');
+            initSvgChart();
+            // 预初始化语音对象（请求权限）
+            initSpeechRecognition();
+        }
+
+        function initTestFlow(type) {
+            state.testType = type;
+            state.results.right = null;
+            state.results.left = null;
+            prepareRightEye();
+        }
+
+        function prepareRightEye() {
+            state.currentEye = 'right';
+            document.getElementById('instructTitle').innerText = "准备测试右眼";
+            document.getElementById('instructText').innerHTML = "请遮挡您的 <b>左眼 (OS)</b><br>用右眼注视屏幕";
+            showPage('page-instruction');
+        }
+
+        function prepareLeftEye() {
+            state.currentEye = 'left';
+            document.getElementById('instructTitle').innerText = "准备测试左眼";
+            document.getElementById('instructText').innerHTML = "现在交换遮挡<br>请遮挡您的 <b>右眼 (OD)</b>";
+            showPage('page-instruction');
+        }
+
+        function startCurrentEyeTest() {
+            if (state.testType === 'acuity') {
+                startAcuityLogic();
+            } else {
+                startAstigmatismLogic();
+            }
+        }
+
+        // --- 视力表核心逻辑 ---
+        function startAcuityLogic() {
+            const fbEl = document.getElementById('feedbackIcon');
+            fbEl.classList.remove('animate');
+            fbEl.innerText = '';
+            state.acuityIndex = 0;
+            resetLevelCounts();
+
+            const label = state.currentEye === 'right' ? "右眼 (OD)" : "左眼 (OS)";
+            const labelEl = document.getElementById('acuityEyeLabel');
+            labelEl.innerText = label;
+
+            if (state.currentEye === 'right') {
+                labelEl.style.background = '#e1f0fa'; labelEl.style.color = '#2D9CDB';
+            } else {
+                labelEl.style.background = '#fcf0fa'; labelEl.style.color = '#9b59b6';
+            }
+
+            showPage('page-acuity');
+            renderOptotype();
+
+            // ★★★ 启动语音 ★★★
+            startVoice();
+        }
+
+        function resetLevelCounts() {
+            state.levelCorrect = 0;
+            state.levelWrong = 0;
+            updateDots();
+        }
+
+        function renderOptotype() {
+            const data = ACUITY_DATA[state.acuityIndex];
+            const el = document.getElementById('optotype');
+            document.getElementById('currentLevelTxt').innerText = data.label;
+            el.style.fontSize = data.px + 'px';
+            const dirs = ['up', 'down', 'left', 'right'];
+            state.currentDirection = dirs[Math.floor(Math.random() * dirs.length)];
+            let rot = 0;
+            switch (state.currentDirection) {
+                case 'up': rot = -90; break;
+                case 'down': rot = 90; break;
+                case 'left': rot = 180; break;
+                case 'right': rot = 0; break;
+            }
+            el.style.transform = `rotate(${rot}deg)`;
+        }
+
+        function handleInput(dir) {
+            const isCorrect = (dir === state.currentDirection);
+            showFeedbackAnim(isCorrect);
+            if (isCorrect) state.levelCorrect++;
+            else {
+                state.levelWrong++;
+                if (navigator.vibrate) navigator.vibrate(200);
+            }
+            updateDots();
+            checkLevelStatus();
+        }
+
+        function handleCannotSee() {
+            state.levelWrong++;
+            if (navigator.vibrate) navigator.vibrate(200);
+            showFeedbackAnim(false);
+            updateDots();
+            checkLevelStatus();
+        }
+
+        function checkLevelStatus() {
+            if (state.levelCorrect >= CONFIG.passRequired) {
+                if (state.acuityIndex < ACUITY_DATA.length - 1) {
+                    state.acuityIndex++;
+                    resetLevelCounts();
+                    setTimeout(renderOptotype, 500); // 稍微延迟一点，体验更好
+                } else {
+                    finishCurrentEye(ACUITY_DATA[state.acuityIndex].label);
+                }
+            } else if (state.levelWrong >= CONFIG.failLimit) {
+                let res = state.acuityIndex === 0 ? "< 4.0" : ACUITY_DATA[state.acuityIndex - 1].label;
+                finishCurrentEye(res);
+            } else {
+                setTimeout(renderOptotype, 500);
+            }
+        }
+
+        // --- 散光测试 ---
+        function startAstigmatismLogic() {
+            const label = state.currentEye === 'right' ? "正在测试：右眼" : "正在测试：左眼";
+            document.getElementById('astigEyeLabel').innerText = label;
+            showPage('page-astigmatism');
+            // 散光测试不强制开启语音，因为需要用户观察
+            stopVoice();
+        }
+
+        // --- 结束逻辑 ---
+        function finishCurrentEye(resultValue) {
+            // ★★★ 停止语音 ★★★
+            stopVoice();
+
+            let displayVal = resultValue;
+            if (state.testType === 'astigmatism') {
+                displayVal = resultValue ? "疑似散光" : "正常";
+            }
+            state.results[state.currentEye] = displayVal;
+
+            if (state.currentEye === 'right') {
+                document.getElementById('interimValue').innerText = displayVal;
+                showPage('page-interim');
+            } else {
+                showFinalReport();
+            }
+        }
+
+        function showFinalReport() {
+            stopVoice(); // 确保停止
+            document.getElementById('resName').innerText = state.name || "--";
+            document.getElementById('resAge').innerText = state.age || "--";
+            document.getElementById('resRight').innerText = state.results.right || "未测试";
+            document.getElementById('resLeft').innerText = state.results.left || "未测试";
+
+            let advice = "";
+            const r = state.results.right;
+            const l = state.results.left;
+
+            if (state.testType === 'acuity') {
+                if ((r && r.includes('<')) || (l && l.includes('<'))) {
+                    advice += "检测到单眼或双眼视力低于筛查基准。可能是近视或弱视的信号，请尽快就医。";
+                } else if (r !== l && r && l) {
+                    advice += "双眼视力存在差异（屈光参差），这容易导致视疲劳，建议进行专业验光。";
+                } else {
+                    advice += "双眼视力表现良好。请继续保持每半年复查一次的习惯。";
+                }
+            } else {
+                if (r === '疑似散光' || l === '疑似散光') {
+                    advice += "发现散光迹象。建议去眼镜店或医院验光确认轴位和度数。";
+                } else {
+                    advice += "线条视觉均匀，暂未发现明显的散光问题。";
+                }
+            }
+            document.getElementById('resAdvice').innerText = advice;
+            showPage('page-result');
+        }
+
+        function updateDots() {
+            const container = document.getElementById('progressDots');
+            container.innerHTML = '';
+            for (let i = 0; i < state.levelCorrect; i++) container.innerHTML += '<div class="dot success"></div>';
+            for (let i = 0; i < state.levelWrong; i++) container.innerHTML += '<div class="dot fail"></div>';
+        }
+
+        function showFeedbackAnim(isCorrect) {
+            const el = document.getElementById('feedbackIcon');
+            el.innerText = isCorrect ? '✅' : '❌';
+            el.style.color = isCorrect ? 'var(--success-color)' : 'var(--error-color)';
+            el.classList.remove('animate');
+            void el.offsetWidth;
+            el.classList.add('animate');
+        }
+
+        function goToIndex() {
+            stopVoice();
+            window.location.href = '../index.html';
+        }
+    </script>
+</body>
+
+</html>
