@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>纯音测听(PTA) - 交互优化版</title>
+    <script src="../js/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --bg: #f4f6f9;
+            --card: #ffffff;
+            --text: #333;
+            --success: #27ae60;
+            --warning: #f39c12;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-container {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            background: var(--card);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .page {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* 按钮与控件 */
+        .response-btn {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            transition: 0.1s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .response-btn:active {
+            transform: scale(0.95);
+            background: #004494;
+        }
+
+        .response-btn span {
+            font-size: 0.9rem;
+            font-weight: normal;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #999;
+            color: #666;
+        }
+
+        /* 状态提示条 */
+        .status-toast {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .status-toast.show {
+            opacity: 1;
+        }
+
+        /* 调试显示 */
+        .debug-info {
+            color: #666;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        /* 耳朵指示器 */
+        .eye-indicator {
+            background: #e1f0fa;
+            color: var(--primary);
+            padding: 8px 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        .eye-indicator.left {
+            background: #fcf0fa;
+            color: #9b59b6;
+        }
+
+        /* 校准页面样式 */
+        .calibration-info {
+            background: #fff3cd;
+            border-left: 5px solid var(--warning);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            max-width: 90%;
+            text-align: left;
+        }
+
+        .calibration-info h3 {
+            margin-bottom: 10px;
+            color: var(--warning);
+        }
+
+        .calibration-info ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .calibration-info li {
+            margin-bottom: 5px;
+        }
+
+        /* 中间结果页面 */
+        .interim-result-box {
+            text-align: center;
+            padding: 30px;
+            background: #eefcf5;
+            border-radius: 15px;
+            margin: 20px 0;
+            max-width: 90%;
+        }
+
+        .interim-result-box h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin: 10px 0;
+        }
+
+        /* 报告卡片 */
+        .report-card {
+            background: #f8faff;
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            max-width: 90%;
+            text-align: left;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .result-value {
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        /* --- 打印专用样式 --- */
+        @media print {
+
+            header,
+            .btn,
+            #uploadResult,
+            .status-toast,
+            .back-btn {
+                display: none !important;
+                /* 隐藏非报告元素 */
+            }
+
+            body,
+            .app-container {
+                background: #fff !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+            }
+
+            .page {
+                display: none !important;
+            }
+
+            #page-result {
+                display: block !important;
+                padding: 0 !important;
+            }
+
+            .report-card {
+                border: 1px solid #ddd !important;
+                background: #fff !important;
+                color: #000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <header>
+            <span class="back-btn" onclick="goToIndex()">🏠</span>
+            <h3>🎧 听力筛查 Pro</h3>
+            <span style="width:20px;"></span>
+        </header>
+
+        <div id="toast" class="status-toast">提示信息</div>
+
+        <!-- 首页 -->
+        <div id="page-home" class="page active">
+            <h2 style="margin-bottom:10px;">准备测试</h2>
+            <p style="color:#666; text-align:center; max-width:80%; margin-bottom:20px;">
+                本测试将分别检测您的左右耳听力。<br>
+                测试前需要进行音量校准，以确保测试结果的准确性。
+            </p>
+
+            <div class="form-section" style="width: 100%; max-width: 400px; margin: 0 auto 20px;">
+                <div class="section-title" style="font-weight: bold; margin-bottom: 15px; color: #333;">基本信息</div>
+                <div class="input-group" style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 0.9rem;">儿童姓名</label>
+                    <input type="text" id="childName" placeholder="请输入姓名" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+                <div class="input-group" style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 0.9rem;">编号</label>
+                    <input type="text" id="childId" placeholder="请输入编号" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+                <div class="input-group" style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 0.9rem;">年龄</label>
+                    <input type="text" id="childAge" placeholder="请输入年龄" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+                <div class="input-group" style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 0.9rem;">性别</label>
+                    <select id="childGender" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                        <option value="">请选择性别</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn" onclick="startCalibration()">开始校准</button>
+        </div>
+
+        <!-- 校准说明页 -->
+        <div id="page-calibration-instruction" class="page">
+            <div class="calibration-info">
+                <h3>📢 音量校准说明</h3>
+                <p><strong>请按照以下步骤操作：</strong></p>
+                <ul>
+                    <li>1. 将设备音量调到<strong>最大</strong></li>
+                    <li>2. 系统将采用间隔法进行校准：</li>
+                    <li style="margin-left:30px;">• 第一阶段：大区间搜索（步长10dB）</li>
+                    <li style="margin-left:30px;">• 第二阶段：中区间搜索（步长5dB）</li>
+                    <li style="margin-left:30px;">• 第三阶段：精细搜索（步长2dB）</li>
+                    <li>3. 当您<strong>刚刚好能听到一点点</strong>声音时，点击"听到了"</li>
+                    <li>4. 系统会自动缩小搜索范围，最终找到相对零分贝</li>
+                </ul>
+            </div>
+            <p style="color:#666; text-align:center; max-width:80%; margin-bottom:20px;">
+                准备好后，请点击下方按钮开始校准。
+            </p>
+            <button class="btn" onclick="startCalibrationProcess()">开始校准</button>
+        </div>
+
+        <!-- 校准测试页 -->
+        <div id="page-calibration" class="page">
+            <h3 style="margin-bottom:20px;">音量校准中...</h3>
+            <div class="debug-info" style="text-align:center;">
+                <div style="margin-bottom:10px;">
+                    阶段: <span id="calibPhase" style="color:var(--primary); font-weight:bold;">大区间搜索</span>
+                </div>
+                <div style="margin-bottom:10px;">
+                    当前音量: <span id="calibDB" style="color:var(--primary); font-weight:bold;">-50</span>dB
+                </div>
+                <div id="calibRange" style="color:#666; font-size:0.85rem;">
+                    搜索范围: 待确定
+                </div>
+            </div>
+
+            <div style="position:relative; margin-bottom:40px;">
+                <div id="visual-cue"
+                    style="width:20px; height:20px; background:#ddd; border-radius:50%; margin:0 auto 20px auto;"></div>
+                <button class="response-btn" onclick="calibrationResponse(true)">
+                    👂<br><span>听到了</span>
+                </button>
+            </div>
+
+            <button class="btn btn-outline" onclick="calibrationResponse(false)">没听到 (继续)</button>
+            <p id="calibInstruction" style="margin-top:20px; color:#666; font-size:0.9rem;">等待给声...</p>
+        </div>
+
+        <!-- 准备测试右耳 -->
+        <div id="page-prepare-right" class="page">
+            <h2 style="text-align:center; margin-bottom:20px;">准备测试右耳</h2>
+            <div style="text-align: center; margin-top: 40px;">
+                <div style="font-size: 4rem; margin-bottom: 20px;">👂</div>
+                <p style="margin: 20px 0; font-size: 1.1rem; color: #555;">
+                    请使用耳塞或手掌<br>完全遮挡您的<strong>左耳</strong>
+                </p>
+                <div style="background:#f0f4f8; padding:15px; border-radius:10px; margin:20px 0; font-size:0.9rem;">
+                    测试时请保持安静环境<br>仔细聆听声音
+                </div>
+                <button class="btn" onclick="startRightEarTest()">我准备好了</button>
+            </div>
+        </div>
+
+        <!-- 准备测试左耳 -->
+        <div id="page-prepare-left" class="page">
+            <h2 style="text-align:center; margin-bottom:20px;">准备测试左耳</h2>
+            <div style="text-align: center; margin-top: 40px;">
+                <div style="font-size: 4rem; margin-bottom: 20px;">👂</div>
+                <p style="margin: 20px 0; font-size: 1.1rem; color: #555;">
+                    现在交换遮挡<br>请遮挡您的<strong>右耳</strong>
+                </p>
+                <div style="background:#f0f4f8; padding:15px; border-radius:10px; margin:20px 0; font-size:0.9rem;">
+                    测试时请保持安静环境<br>仔细聆听声音
+                </div>
+                <button class="btn" onclick="startLeftEarTest()">我准备好了</button>
+            </div>
+        </div>
+
+        <!-- 测试页 -->
+        <div id="page-test" class="page">
+            <div class="eye-indicator" id="earIndicator">右耳 (AD)</div>
+            <div class="debug-info">
+                <span id="currFreq">1000</span>Hz |
+                <span id="currDB" style="color:var(--primary); font-weight:bold;">40</span>dB
+            </div>
+
+            <div style="position:relative; margin-bottom:40px;">
+                <div id="visual-cue"
+                    style="width:20px; height:20px; background:#ddd; border-radius:50%; margin:0 auto 20px auto;"></div>
+                <button class="response-btn" onclick="userResponse(true)">
+                    👂<br><span>听到了</span>
+                </button>
+            </div>
+
+            <button class="btn btn-outline" onclick="userResponse(false)">没听到 (跳过)</button>
+            <p id="instruction" style="margin-top:20px; color:#666; font-size:0.9rem;">等待给声...</p>
+        </div>
+
+        <!-- 右耳测试完成 -->
+        <div id="page-interim-right" class="page">
+            <h2 style="text-align:center; margin-top:20px;">右耳测试完成</h2>
+            <div class="interim-result-box">
+                <p>右耳结果</p>
+                <h1 id="interimRightValue" style="color:var(--primary); font-size:2.5rem; margin:10px 0;">--</h1>
+            </div>
+            <button class="btn" onclick="prepareLeftEar()">⬅️ 继续测左耳 (推荐)</button>
+            <button class="btn btn-outline" style="margin-top:15px;" onclick="showFinalReport()">跳过左耳，查看报告</button>
+        </div>
+
+        <!-- 最终报告页 -->
+        <div id="page-result" class="page">
+            <div id="report-content">
+                <h2 style="text-align:center; margin-bottom:20px;">听力检测报告</h2>
+
+                <div class="report-card">
+                    <div class="result-row">
+                        <span>👂 右耳 (AD)</span>
+                        <span id="resRight" class="result-value">--</span>
+                    </div>
+                    <div class="result-row" style="border-bottom:none;">
+                        <span>👂 左耳 (AS)</span>
+                        <span id="resLeft" class="result-value">--</span>
+                    </div>
+                </div>
+
+                <div class="report-card" style="border-left-color: #f39c12; background:#fffbf2;">
+                    <p><strong>💡 分析与建议：</strong></p>
+                    <p id="resAdvice" style="margin-top:5px; line-height:1.5;">--</p>
+                </div>
+            </div>
+            <button class="btn" onclick="saveToPDF()">📄 下载PDF报告</button>
+            <button class="btn" onclick="uploadGrade()" style="margin-top:15px;">📤 提交成绩</button>
+            <button class="btn btn-outline" style="margin-top:15px;" onclick="location.reload()">返回首页</button>
+            <div id="uploadResult" style="margin-top:20px; padding:15px; border-radius:5px; display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const FREQS = [1000, 2000, 4000, 500];
+        let audioCtx = null;
+
+        // 状态管理
+        let state = {
+            // --- 校准相关 (二分法逻辑) ---
+            calibrationDB: 0,       // 最终结果
+            calibPhase: 0,          // 0: 寻找大区间, 1: 区间内二分查找
+            calibLow: -100,         // 当前确定的“听不到”的下限
+            calibHigh: 0,           // 当前确定的“听得到”的上限
+            calibCurrentDB: -60,    // 当前测试值
+
+            // --- 测试相关 ---
+            currentEar: 'right',
+            idx: 0,
+            db: 40,
+
+            // --- 结果 ---
+            results: { right: null, left: null }
+        };
+
+        // 音频核心 (保持不变，计算逻辑更精准)
+        function playToneCore(freq, gainValue) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+
+            // 使用指数计算分贝转增益
+            const vol = Math.pow(10, gainValue / 20);
+            gain.gain.value = Math.max(0, Math.min(1, vol));
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+
+            const visualCue = document.getElementById('visual-cue');
+            if (visualCue) visualCue.style.background = '#2ecc71';
+
+            const duration = 1.2; // 稍微缩短一点，提高测试节奏
+            gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration + 0.1);
+
+            setTimeout(() => {
+                if (visualCue) visualCue.style.background = '#ddd';
+            }, duration * 1000);
+        }
+
+        // 页面跳转
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        // --- 校准流程 (二分法实现) ---
+
+        function startCalibration() {
+            const name = document.getElementById('childName').value;
+            const id = document.getElementById('childId').value;
+            const ageInput = document.getElementById('childAge').value;
+            const gender = document.getElementById('childGender').value;
+
+            if (!name || !id || !ageInput || !gender) {
+                alert('请填写完整的基本信息！');
+                return;
+            }
+
+            const age = parseFloat(ageInput);
+            if (isNaN(age)) {
+                alert('年龄必须是有效的数字！');
+                return;
+            }
+
+            showPage('page-calibration-instruction');
+        }
+
+        function startCalibrationProcess() {
+            // 初始化二分法状态
+            state.calibrationDB = null;
+            state.calibPhase = 0;       // 阶段0：大步进寻找边界
+            state.calibCurrentDB = -60; // 从极低音量开始
+            state.calibLow = -100;      // 暂时未知
+            state.calibHigh = 0;        // 暂时未知
+
+            showPage('page-calibration');
+            updateCalibDebugInfo();
+            scheduleCalibrationTone(1000);
+        }
+
+        function updateCalibDebugInfo() {
+            const phaseEl = document.getElementById('calibPhase');
+            const dbEl = document.getElementById('calibDB');
+            const rangeEl = document.getElementById('calibRange');
+
+            let phaseText = "";
+            if (state.calibPhase === 0) phaseText = "1. 寻找分贝区间 (步长10dB)";
+            else phaseText = "2. 区间内二分逼近 (精度1dB)";
+
+            if (phaseEl) phaseEl.innerText = phaseText;
+            if (dbEl) dbEl.innerText = state.calibCurrentDB;
+
+            if (rangeEl) {
+                if (state.calibPhase === 1) {
+                    rangeEl.innerText = `锁定范围: [${state.calibLow}, ${state.calibHigh}] dB`;
+                    rangeEl.style.color = "#d35400";
+                    rangeEl.style.fontWeight = "bold";
+                } else {
+                    rangeEl.innerText = "范围搜索中...";
+                    rangeEl.style.color = "#666";
+                }
+            }
+        }
+
+        function scheduleCalibrationTone(delay = 1000) {
+            const instructionEl = document.getElementById('calibInstruction');
+            if (instructionEl) instructionEl.innerText = "注意听...";
+            updateCalibDebugInfo();
+
+            setTimeout(() => {
+                playToneCore(1000, state.calibCurrentDB);
+                if (instructionEl) instructionEl.innerText = "听到了吗？";
+            }, delay);
+        }
+
+        // --- 核心：二分法逻辑 ---
+        function calibrationResponse(heard) {
+
+            // 1. 第一阶段：大步进寻找“听不到”和“听得到”的边界
+            if (state.calibPhase === 0) {
+                if (heard) {
+                    // 听到了！说明阈值在 [Current-10, Current] 之间
+                    // 例如：-40dB听到了，上一次-50没听到。区间就是 [-50, -40]
+                    state.calibHigh = state.calibCurrentDB;     // 上限：听得到的值
+                    state.calibLow = state.calibCurrentDB - 10; // 下限：听不到的值
+
+                    // 进入第二阶段
+                    state.calibPhase = 1;
+                    showToast(`🔒 锁定区间 [${state.calibLow}, ${state.calibHigh}]，开始二分查找...`);
+
+                    // 取中间值开始测
+                    state.calibCurrentDB = Math.floor((state.calibLow + state.calibHigh) / 2);
+                } else {
+                    // 没听到，继续加大音量
+                    if (state.calibCurrentDB >= 10) {
+                        showToast("⚠️ 音量已达最大仍未听到，请检查设备");
+                        return;
+                    }
+                    state.calibCurrentDB += 10;
+                }
+            }
+            // 2. 第二阶段：二分查找 (Binary Search)
+            else if (state.calibPhase === 1) {
+                if (heard) {
+                    // 听到了 -> 阈值在左半区 (Lower Half)
+                    // 也就是阈值 <= 当前值
+                    // 更新上限 High 为当前值
+                    state.calibHigh = state.calibCurrentDB;
+                } else {
+                    // 没听到 -> 阈值在右半区 (Upper Half)
+                    // 也就是阈值 > 当前值
+                    // 更新下限 Low 为当前值 + 1
+                    state.calibLow = state.calibCurrentDB + 1;
+                }
+
+                // 【终止条件】：当区间被压缩到没有空隙时 (Low >= High)
+                if (state.calibLow >= state.calibHigh) {
+                    finishCalibration(state.calibHigh); // 最终结果就是 High
+                    return;
+                }
+
+                // 计算新的中间值
+                state.calibCurrentDB = Math.floor((state.calibLow + state.calibHigh) / 2);
+            }
+
+            scheduleCalibrationTone(1200);
+        }
+
+        function finishCalibration(resultDB) {
+            state.calibrationDB = resultDB;
+            showToast(`✅ 校准完成！相对零分贝: ${resultDB}dB`);
+            updateCalibDebugInfo(); // 更新UI显示最终结果
+
+            setTimeout(() => {
+                prepareRightEar();
+            }, 2000);
+        }
+
+        // --- 正式测试部分 (保持逻辑一致) ---
+
+        function prepareRightEar() {
+            state.currentEar = 'right';
+            showPage('page-prepare-right');
+        }
+
+        function prepareLeftEar() {
+            state.currentEar = 'left';
+            showPage('page-prepare-left');
+        }
+
+        function startRightEarTest() {
+            state.currentEar = 'right';
+            startEarTest();
+        }
+
+        function startLeftEarTest() {
+            state.currentEar = 'left';
+            startEarTest();
+        }
+
+        function startEarTest() {
+            const indicator = document.getElementById('earIndicator');
+            if (indicator) {
+                indicator.innerText = state.currentEar === 'right' ? '右耳 (AD)' : '左耳 (AS)';
+                indicator.className = `eye-indicator ${state.currentEar === 'left' ? 'left' : ''}`;
+            }
+            state.idx = 0;
+            state.db = 40;
+            showPage('page-test');
+            scheduleTestTone(1000);
+        }
+
+        function scheduleTestTone(delay = 1000) {
+            const instructionEl = document.getElementById('instruction');
+            const freqEl = document.getElementById('currFreq');
+            const dbEl = document.getElementById('currDB');
+            if (instructionEl) instructionEl.innerText = "注意听...";
+            if (freqEl) freqEl.innerText = FREQS[state.idx];
+            if (dbEl) dbEl.innerText = state.db;
+
+            setTimeout(() => {
+                // 实际播放 = 校准零点 + 测试HL
+                let targetDB = state.calibrationDB + state.db;
+                if (targetDB > 0) targetDB = 0; // 封顶
+                playToneCore(FREQS[state.idx], targetDB);
+
+                if (instructionEl) instructionEl.innerText = "听到了吗？";
+            }, delay);
+        }
+
+        // 测试阶段也可以沿用简化的升降法，或者你想更精确也可以改成二分
+        // 这里为了测试速度，保留改良版升降法 (听见-10，听不见+5)
+        function userResponse(heard) {
+            if (heard) {
+                state.db -= 10;
+                showToast("✅ 听到了！降低音量...");
+                // 快速通过机制
+                if (state.db < -10) { recordAndNext(-5); return; }
+            } else {
+                showToast("❌ 没听到，记录结果...");
+                recordAndNext(state.db + 5); // 没听到，说明阈值可能在 (当前, 当前+5]
+                return;
+            }
+            scheduleTestTone(1500);
+        }
+
+        function recordAndNext(resultVal) {
+            let resString = resultVal + ' dB HL';
+            if (state.currentEar === 'right') state.results.right = resString;
+            else state.results.left = resString;
+
+            state.idx++;
+            if (state.idx >= FREQS.length) {
+                if (state.currentEar === 'right') {
+                    document.getElementById('interimRightValue').innerText = state.results.right;
+                    showPage('page-interim-right');
+                } else {
+                    showFinalReport();
+                }
+            } else {
+                state.db = 40;
+                showToast(`🔄 切换到 ${FREQS[state.idx]}Hz`);
+                scheduleTestTone(2000);
+            }
+        }
+
+        function showFinalReport() {
+            document.getElementById('resRight').innerText = state.results.right || "--";
+            document.getElementById('resLeft').innerText = state.results.left || "--";
+
+            let advice = "";
+            const rVal = parseInt(state.results.right) || 0;
+            const lVal = parseInt(state.results.left) || 0;
+
+            if (rVal > 25 || lVal > 25) advice = "检测结果提示听力阈值略高，建议进行专业复查。";
+            else advice = "听力反应在正常范围内 (≤25 dB HL)。";
+
+            document.getElementById('resAdvice').innerText = advice;
+
+            // 存储测试结果
+            currentResult = `右耳: ${state.results.right || "--"}, 左耳: ${state.results.left || "--"}`;
+
+            showPage('page-result');
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            if (t) {
+                t.innerText = msg;
+                t.classList.add('show');
+                setTimeout(() => t.classList.remove('show'), 1500);
+            }
+        }
+
+        function goToIndex() {
+            location.href = "../index.html";
+        }
+
+        let submitted = false; // 标记是否已经提交过成绩
+        let currentResult = ''; // 存储当前测试结果
+
+        function resetForm() {
+            document.getElementById('childName').value = '';
+            document.getElementById('childId').value = '';
+            document.getElementById('childAge').value = '';
+            document.getElementById('childGender').value = '';
+            submitted = false; // 重置提交状态
+            currentResult = ''; // 重置测试结果
+        }
+
+        async function uploadGrade() {
+            const studentName = document.getElementById('childName').value;
+            const studentId = document.getElementById('childId').value;
+            const studentAgeInput = document.getElementById('childAge').value;
+            const studentGender = document.getElementById('childGender').value;
+            const uploadResult = document.getElementById('uploadResult');
+
+            // 检查是否已经提交过成绩
+            if (submitted) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '成绩已经提交过，刷新页面或重新评估后可再次提交！';
+                return;
+            }
+
+            // 验证输入
+            if (!studentName || !studentId || !studentAgeInput || !studentGender) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '请填写完整的基本信息！';
+                return;
+            }
+
+            // 验证年龄是否为有效数字
+            const studentAge = parseFloat(studentAgeInput);
+            if (isNaN(studentAge)) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '年龄必须是有效的数字！';
+                return;
+            }
+
+            // 检查是否已经测试
+            if (!currentResult) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '请先完成测试！';
+                return;
+            }
+
+            try {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#e3f2fd';
+                uploadResult.style.color = '#1976D2';
+                uploadResult.textContent = '正在上传...';
+
+                const response = await fetch('/api/upload-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'hearing',
+                        name: studentName,
+                        id: studentId,
+                        age: studentAge,
+                        gender: studentGender,
+                        result: currentResult
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    uploadResult.style.backgroundColor = '#e8f5e8';
+                    uploadResult.style.color = '#2e7d32';
+                    uploadResult.textContent = '成绩上传成功！';
+                    submitted = true; // 标记为已提交
+                } else {
+                    uploadResult.style.backgroundColor = '#ffebee';
+                    uploadResult.style.color = '#c62828';
+                    uploadResult.textContent = `上传失败: ${data.message}`;
+                }
+            } catch (error) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '网络异常，请稍后重试！';
+            }
+        }
+
+        // 保存PDF报告 (兼容 iOS 与微信环境)
+        function saveToPDF() {
+            const reportContent = document.getElementById('report-content');
+            if (!reportContent) {
+                showToast('错误：找不到报告内容');
+                return;
+            }
+
+            // 1. 同步添加日期和页脚 (无需 setTimeout，底层引擎会自动捕获)
+            const now = new Date();
+            const dateStr = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日';
+
+            const dateElement = document.createElement('p');
+            dateElement.style.textAlign = 'center';
+            dateElement.style.color = '#666';
+            dateElement.style.marginBottom = '20px';
+            dateElement.style.fontSize = '14px';
+            dateElement.textContent = '测试日期：' + dateStr;
+
+            const footer = document.createElement('p');
+            footer.style.textAlign = 'center';
+            footer.style.color = '#999';
+            footer.style.marginTop = '30px';
+            footer.style.fontSize = '12px';
+            footer.style.borderTop = '1px solid #eee';
+            footer.style.paddingTop = '15px';
+            footer.textContent = '本报告仅供参考，不能替代专业医疗诊断';
+
+            const headerElement = reportContent.querySelector('h2');
+            if (headerElement) {
+                headerElement.parentNode.insertBefore(dateElement, headerElement.nextSibling);
+            }
+            reportContent.appendChild(footer);
+
+            // 2. 核心配置
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: '听力检测报告_' + dateStr + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    scrollY: 0,
+                    scrollX: 0,
+                    windowWidth: document.documentElement.offsetWidth
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            showToast('正在生成PDF...');
+
+            // 3. 判断是否为 iOS 设备 (包括 iPhone, iPad, Mac)
+            const isIOS = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+
+            // 4. 初始化生成器
+            const worker = html2pdf().set(opt).from(reportContent);
+
+            // 5. 恢复 DOM 的通用函数
+            const cleanupDOM = () => {
+                if (dateElement.parentNode) dateElement.remove();
+                if (footer.parentNode) footer.remove();
+            };
+
+            if (isIOS) {
+                // 🍎 苹果端特殊处理：生成 Blob URL 并在当前页面打开预览
+                worker.toPdf().get('pdf').then((pdf) => {
+                    cleanupDOM();
+                    // 将 PDF 输出为浏览器可直接读取的 Blob 数据源
+                    const blobUrl = pdf.output('bloburl');
+                    // 直接跳转过去，触发系统的 PDF 预览界面
+                    window.location.href = blobUrl;
+                    showToast('请点击右上角或底部按钮保存');
+                }).catch(err => {
+                    cleanupDOM();
+                    console.error(err);
+                    showToast('PDF生成失败');
+                });
+            } else {
+                // 🤖 安卓与 PC 端处理：直接触发静默下载
+                worker.save().then(() => {
+                    cleanupDOM();
+                    showToast('PDF报告已下载');
+                }).catch(err => {
+                    cleanupDOM();
+                    console.error(err);
+                    showToast('PDF生成失败');
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>瑞文联合测试(CRT)</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --bg: #f4f7f9;
+            --card: #ffffff;
+            --text: #333;
+            --border-radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 布局容器 --- */
+        .app-container {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            background: var(--card);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- 顶部栏 --- */
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .back-btn {
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background 0.3s ease;
+            text-decoration: none;
+            color: white;
+        }
+
+        .timer-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        /* --- 页面切换 --- */
+        .page {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* --- 欢迎页/表单 --- */
+        .intro-content {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .instruction-box {
+            background: #eef6ff;
+            border-left: 4px solid var(--primary);
+            text-align: left;
+            padding: 15px;
+            margin: 20px 0;
+            line-height: 1.6;
+        }
+
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        /* --- 题目区域 --- */
+        .question-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+        }
+
+        .problem-image {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #333;
+            position: relative;
+            background: #fff;
+        }
+
+        .problem-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+        }
+
+        .option-item {
+            background: #fff;
+            border: 2px solid #ddd;
+            aspect-ratio: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.2s;
+            overflow: hidden;
+            padding: 5px;
+        }
+
+        .option-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .option-item:hover {
+            border-color: var(--primary);
+            background: #f0f7ff;
+        }
+
+        .option-item.selected {
+            border-color: var(--primary);
+            border-width: 3px;
+            background: #e3f2fd;
+        }
+
+        /* --- 底部控制栏 --- */
+        .footer-controls {
+            border-top: 1px solid #eee;
+            padding: 10px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .map-toggle {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #666;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .question-map {
+            display: none;
+            grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+            gap: 5px;
+            padding: 10px;
+            background: #f9f9f9;
+            max-height: 150px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .map-item {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #ccc;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .map-item.answered {
+            background: #dff0d8;
+            border-color: #d6e9c6;
+            color: #3c763d;
+        }
+
+        .map-item.current {
+            border: 2px solid var(--primary);
+            font-weight: bold;
+        }
+
+        /* --- 按钮 --- */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-green {
+            background: #27ae60;
+        }
+
+        /* --- 报告页 --- */
+        .report-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .score-big {
+            font-size: 2.5rem;
+            color: var(--primary);
+            font-weight: bold;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        @media (min-width: 600px) {
+            .options-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .app-container {
+                margin: 20px auto;
+                border-radius: 10px;
+                height: 90vh;
+            }
+        }
+
+        /* -------------------------------------
+           核心修改：打印专用样式 (解决手机端问题)
+           ------------------------------------- */
+        @media print {
+
+            /* 1. 隐藏非内容元素 */
+            header,
+            .footer-controls,
+            .btn,
+            .btn-outline,
+            .back-btn,
+            .map-toggle {
+                display: none !important;
+            }
+
+            /* 2. 重置容器样式，适应A4纸 */
+            body,
+            .app-container {
+                background: #fff !important;
+                box-shadow: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* 3. 强制隐藏其他页面，只显示结果页 */
+            .page {
+                display: none !important;
+            }
+
+            #page-result {
+                display: block !important;
+                padding: 0 !important;
+            }
+
+            /* 4. 优化报告显示 */
+            .report-section {
+                border: 1px solid #ccc !important;
+                page-break-inside: avoid;
+                /* 防止内容被切断 */
+            }
+
+            h2 {
+                margin-top: 0 !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <header>
+            <a href="../index.html" class="back-btn">🏠</a>
+            <h3 id="app-title">瑞文联合测试(CRT)</h3>
+            <div class="timer-box" id="timer" style="display:none;">40:00</div>
+        </header>
+
+        <div id="page-intro" class="page active">
+            <div class="intro-content">
+                <h2>瑞文联合测试(CRT)</h2>
+
+                <div style="margin-top:30px; text-align:left;">
+                    <label>受测人姓名</label>
+                    <input type="text" id="childName" placeholder="请输入姓名" required>
+                    <label>编号</label>
+                    <input type="text" id="childId" placeholder="请输入编号" required>
+                    <label>年龄 (周岁)</label>
+                    <input type="text" id="childAge" placeholder="请输入年龄" required>
+                    <label>性别</label>
+                    <select id="childGender" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 15px;">
+                        <option value="">请选择性别</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                </div>
+
+                <div class="instruction-box">
+                    <b>📜 指导语：</b><br>
+                    每道题都有一个缺失部分的图案，您需要从下方的选项中，选出最合适的一个填补进去。<br>
+                    共 <b>72题</b>，限时 <b>40分钟</b>。<br>
+                    遇到不会的题可以先跳过，点击“下一题”。
+                </div>
+
+                <button class="btn" onclick="startPractice()">进入练习 (例题)</button>
+            </div>
+        </div>
+
+        <div id="page-practice" class="page">
+            <h4 style="text-align:center; color:var(--primary); margin-bottom:10px;">练习阶段 (不计分)</h4>
+            <div id="practice-container" class="question-area"></div>
+            <div id="practice-feedback" style="text-align:center; height:30px; color:#e74c3c; font-weight:bold;"></div>
+            <button class="btn" style="margin-top:10px;" onclick="checkPractice()">提交</button>
+        </div>
+
+        <div id="page-test" class="page" style="padding:0;">
+            <div class="question-map" id="questionMap"></div>
+            <div class="question-area" style="padding:20px;">
+                <div style="width:100%; display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <span>题目: <b id="q-index">1</b> / 72</span>
+                    <span id="q-set-badge"
+                        style="background:#eee; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Set A</span>
+                </div>
+                <div class="problem-image">
+                    <img id="q-img" src="" alt="题目图片" style="display:none;">
+                    <span id="q-img-placeholder" style="font-size:2rem; font-weight:bold; color:#ccc;">加载中...</span>
+                </div>
+                <div class="options-grid" id="options-area"></div>
+            </div>
+            <div class="footer-controls">
+                <div class="nav-buttons">
+                    <button class="btn btn-outline" style="width:30%" onclick="prevQuestion()">上一题</button>
+                    <button class="btn" style="width:40%" onclick="nextQuestion()">下一题</button>
+                    <button class="btn btn-green" style="width:30%" onclick="submitTest()">交卷</button>
+                </div>
+                <div class="map-toggle" onclick="toggleMap()">📊 查看答题卡 / 跳转题目</div>
+            </div>
+        </div>
+
+        <div id="page-result" class="page">
+            <div id="report-content">
+                <h2 style="text-align:center; margin-bottom:20px;">测试结果报告</h2>
+
+                <div class="report-section">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <span>姓名：<b id="resName">--</b></span>
+                        <span>年龄：<b id="resAge">--</b></span>
+                    </div>
+                    <hr style="border:0; border-top:1px solid #eee;">
+                    <p style="text-align:center; margin-top:10px; color:#666;">原始得分 (满分72)</p>
+                    <div class="score-big" id="resScore">0</div>
+                </div>
+
+                <div class="report-section">
+                    <h4>📊 评估结论</h4>
+                    <table>
+                        <tr>
+                            <td>百分等级 (PR)</td>
+                            <td style="font-weight:bold; color:var(--primary);" id="resPR">--</td>
+                        </tr>
+                        <tr>
+                            <td>智力水平</td>
+                            <td style="font-weight:bold;" id="resLevel">--</td>
+                        </tr>
+                    </table>
+                    <div class="instruction-box" style="margin-bottom:0;" id="resAdvice">--</div>
+                </div>
+            </div>
+
+            <div
+                style="margin-top: 20px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                <button class="btn" style="width: auto; min-width: 200px;" onclick="window.print()">📥 保存结果 / 打印
+                    PDF</button>
+                <button class="btn" style="margin-top:10px; width: auto; min-width: 200px;" onclick="uploadGrade()">📤
+                    提交成绩</button>
+                <button class="btn btn-outline" style="margin-top:10px; width: auto; min-width: 200px;"
+                    onclick="location.reload()">退出</button>
+                <div id="uploadResult" style="margin-top:20px; padding:15px; border-radius:5px; display:none;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // JS逻辑保持不变
+        const TOTAL_QUESTIONS = 72;
+        const QUESTIONS = [];
+        const BASE_PATH = '../resources/pic/pic_iq/iq_test/';
+
+        const CORRECT_ANSWERS = [
+            4, 5, 1, 2, 6, 3, 6, 6, 1, 3, 4, 5,
+            4, 5, 1, 6, 2, 1, 3, 4, 6, 3, 5, 2,
+            2, 6, 1, 2, 1, 3, 5, 6, 4, 3, 4, 5,
+            8, 2, 3, 8, 7, 4, 5, 1, 7, 6, 1, 2,
+            3, 4, 3, 7, 8, 6, 5, 4, 1, 2, 5, 6,
+            7, 6, 8, 2, 1, 5, 1, 6, 3, 2, 4, 2
+        ];
+
+        const OPTION_COUNTS = [
+            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+            6, 6, 6, 6, 6, 6, 6, 6, 5, 6, 6, 6,
+            8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+            8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+            8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+        ];
+
+        let questionsInitialized = false;
+
+        async function initQuestions() {
+            if (questionsInitialized) return;
+            const loadingMsg = document.getElementById('q-img-placeholder');
+            if (loadingMsg) loadingMsg.innerText = '正在加载题目配置...';
+
+            for (let i = 1; i <= TOTAL_QUESTIONS; i++) {
+                const questionPath = `${BASE_PATH}${i}/`;
+                const correctAnswer = CORRECT_ANSWERS[i - 1] || 1;
+                const optionsCount = OPTION_COUNTS[i - 1] || 6;
+                let set = 'A';
+                if (i <= 12) set = 'A'; else if (i <= 24) set = 'B'; else if (i <= 36) set = 'C';
+                else if (i <= 48) set = 'D'; else if (i <= 60) set = 'E'; else set = 'F';
+
+                QUESTIONS.push({
+                    id: i,
+                    set: set,
+                    label: `${set}-${((i - 1) % 12) + 1}`,
+                    options: optionsCount,
+                    answer: correctAnswer,
+                    questionPath: questionPath
+                });
+            }
+            questionsInitialized = true;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initQuestions().catch(err => console.error('初始化题目失败:', err));
+        });
+
+        let state = {
+            currentQIndex: 0,
+            userAnswers: new Array(TOTAL_QUESTIONS).fill(null),
+            timeLeft: 40 * 60,
+            timerId: null,
+            userInfo: { name: '', age: 0, id: '', gender: '' }
+        };
+
+        let submitted = false; // 标记是否已经提交过成绩
+        let currentResult = ''; // 存储当前测试结果
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        async function startPractice() {
+            const name = document.getElementById('childName').value;
+            const id = document.getElementById('childId').value;
+            const ageInput = document.getElementById('childAge').value;
+            const gender = document.getElementById('childGender').value;
+
+            if (!name || !id || !ageInput || !gender) return alert("请填写完整的基本信息");
+
+            const age = parseFloat(ageInput);
+            if (isNaN(age)) return alert("年龄必须是有效的数字");
+
+            state.userInfo.name = name;
+            state.userInfo.id = id;
+            state.userInfo.age = age;
+            state.userInfo.gender = gender;
+
+            if (QUESTIONS.length === 0) await initQuestions();
+            showPage('page-practice');
+            renderPracticeQ();
+        }
+
+        async function renderPracticeQ() {
+            const container = document.getElementById('practice-container');
+            const practiceQId = 1;
+            const practicePath = `${BASE_PATH}${practiceQId}/`;
+            const optionsCount = QUESTIONS.length > 0 ? QUESTIONS[0].options : (OPTION_COUNTS[0] || 6);
+
+            let html = `
+            <div class="problem-image">
+                <img src="${practicePath}ques.png" alt="练习题目" style="width:100%; height:auto;">
+            </div>
+            <div class="options-grid" style="grid-template-columns: ${optionsCount <= 6 ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)'};">
+            `;
+            const practiceCorrectAnswer = CORRECT_ANSWERS[0] || 1;
+            for (let i = 1; i <= optionsCount; i++) {
+                const imagePath = (i === practiceCorrectAnswer) ? `${practicePath}answer${i}-right.png` : `${practicePath}answer${i}.png`;
+                html += `<div class="option-item" onclick="selectPracticeOption(this, ${i})">
+                    <img src="${imagePath}" alt="选项${i}" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\'font-size:1.2rem; font-weight:bold;\\'>${i}</span>';">
+                </div>`;
+            }
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        let practiceSelection = null;
+        function selectPracticeOption(el, val) {
+            document.querySelectorAll('#practice-container .option-item').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            practiceSelection = val;
+        }
+
+        async function checkPractice() {
+            if (!practiceSelection) return;
+            const correctAnswer = CORRECT_ANSWERS[0] || 4;
+            if (practiceSelection === correctAnswer) {
+                alert("✅ 回答正确！\n\n接下来将开始正式测试。");
+                startTest();
+            } else {
+                document.getElementById('practice-feedback').innerText = "❌ 答案不对，请再仔细观察图形规律。";
+            }
+        }
+
+        async function startTest() {
+            if (QUESTIONS.length === 0) {
+                document.getElementById('q-img-placeholder').innerText = '正在加载题目...';
+                await initQuestions();
+            }
+            showPage('page-test');
+            document.getElementById('timer').style.display = 'block';
+            initMap();
+            renderQuestion(0);
+            startTimer();
+        }
+
+        function startTimer() {
+            state.timerId = setInterval(() => {
+                state.timeLeft--;
+                const m = Math.floor(state.timeLeft / 60).toString().padStart(2, '0');
+                const s = (state.timeLeft % 60).toString().padStart(2, '0');
+                document.getElementById('timer').innerText = `${m}:${s}`;
+                if (state.timeLeft <= 0) {
+                    clearInterval(state.timerId);
+                    alert("⏳ 时间到！系统将自动提交试卷。");
+                    submitTest();
+                }
+            }, 1000);
+        }
+
+        function renderQuestion(index) {
+            state.currentQIndex = index;
+            const q = QUESTIONS[index];
+            document.getElementById('q-index').innerText = index + 1;
+            document.getElementById('q-set-badge').innerText = `Set ${q.set}`;
+            const qImg = document.getElementById('q-img');
+            const qPlaceholder = document.getElementById('q-img-placeholder');
+            qImg.src = `${q.questionPath}ques.png`;
+            qImg.onload = () => { qImg.style.display = 'block'; qPlaceholder.style.display = 'none'; };
+            qImg.onerror = () => { qImg.style.display = 'none'; qPlaceholder.style.display = 'block'; };
+
+            const optContainer = document.getElementById('options-area');
+            optContainer.style.gridTemplateColumns = q.options <= 6 ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)';
+
+            let html = '';
+            const correctAnswer = CORRECT_ANSWERS[index];
+            for (let i = 1; i <= q.options; i++) {
+                const isSelected = state.userAnswers[index] === i ? 'selected' : '';
+                const imagePath = (i === correctAnswer) ? `${q.questionPath}answer${i}-right.png` : `${q.questionPath}answer${i}.png`;
+                html += `<div class="option-item ${isSelected}" onclick="selectOption(${i})">
+                    <img src="${imagePath}" alt="选项${i}" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\'font-size:1.2rem; font-weight:bold;\\'>${i}</span>';">
+                </div>`;
+            }
+            optContainer.innerHTML = html;
+            updateMapUI();
+        }
+
+        function selectOption(val) {
+            state.userAnswers[state.currentQIndex] = val;
+            renderQuestion(state.currentQIndex);
+            if ((state.currentQIndex + 1) % 12 === 0) {
+                const groupNum = (state.currentQIndex + 1) / 12;
+                alert(`第${groupNum}组已完成，请继续加油！`);
+            }
+        }
+
+        function nextQuestion() {
+            if (state.currentQIndex < TOTAL_QUESTIONS - 1) renderQuestion(state.currentQIndex + 1);
+        }
+
+        function prevQuestion() {
+            if (state.currentQIndex > 0) renderQuestion(state.currentQIndex - 1);
+        }
+
+        function initMap() {
+            const map = document.getElementById('questionMap');
+            let html = '';
+            for (let i = 0; i < TOTAL_QUESTIONS; i++) html += `<div class="map-item" id="map-${i}" onclick="renderQuestion(${i})">${i + 1}</div>`;
+            map.innerHTML = html;
+        }
+
+        function toggleMap() {
+            const map = document.getElementById('questionMap');
+            map.style.display = map.style.display === 'grid' ? 'none' : 'grid';
+        }
+
+        function updateMapUI() {
+            for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+                const el = document.getElementById(`map-${i}`);
+                el.className = 'map-item';
+                if (state.userAnswers[i] !== null) el.classList.add('answered');
+                if (i === state.currentQIndex) el.classList.add('current');
+            }
+        }
+
+        function submitTest() {
+            clearInterval(state.timerId);
+            const answeredCount = state.userAnswers.filter(a => a !== null).length;
+            if (state.timeLeft > 0 && answeredCount < TOTAL_QUESTIONS) {
+                if (!confirm(`您还有 ${TOTAL_QUESTIONS - answeredCount} 道题未做，确定要交卷吗？`)) {
+                    startTimer();
+                    return;
+                }
+            }
+            let rawScore = 0;
+            state.userAnswers.forEach((ans, idx) => { if (ans === QUESTIONS[idx].answer) rawScore++; });
+            generateReport(rawScore);
+        }
+
+        function generateReport(score) {
+            showPage('page-result');
+            document.getElementById('timer').style.display = 'none';
+            document.getElementById('resName').innerText = state.userInfo.name;
+            document.getElementById('resAge').innerText = state.userInfo.age;
+            document.getElementById('resScore').innerText = score;
+
+            const baseNorm = 40 + (state.userInfo.age - 10);
+            let pr = '', level = '', advice = '';
+            const diff = score - baseNorm;
+
+            if (diff >= 15) { pr = '≥95%'; level = '极高水平'; advice = '建议进一步评估超常儿童潜能。'; }
+            else if (diff >= 5) { pr = '75%-94%'; level = '中上水平'; advice = '智力发展良好，适合挑战性学习任务。'; }
+            else if (diff >= -10) { pr = '25%-74%'; level = '平均水平'; advice = '智力发展处于同龄人正常范围。'; }
+            else if (diff >= -20) { pr = '5%-24%'; level = '中下水平'; advice = '关注学习困难，建议提供认知训练。'; }
+            else { pr = '<5%'; level = '临界或低下'; advice = '建议结合临床评估，寻求专业支持。'; }
+
+            document.getElementById('resPR').innerText = pr;
+            document.getElementById('resLevel').innerText = level;
+            document.getElementById('resAdvice').innerText = advice;
+
+            // 存储测试结果
+            currentResult = `${score}分 (${level})`;
+        }
+
+        async function uploadGrade() {
+            const studentName = state.userInfo.name;
+            const studentId = state.userInfo.id;
+            const studentAge = state.userInfo.age;
+            const studentGender = state.userInfo.gender;
+            const uploadResult = document.getElementById('uploadResult');
+
+            // 检查是否已经提交过成绩
+            if (submitted) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '成绩已经提交过，刷新页面或重新评估后可再次提交！';
+                return;
+            }
+
+            // 检查是否已经测试
+            if (!currentResult) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '请先完成测试！';
+                return;
+            }
+
+            try {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#e3f2fd';
+                uploadResult.style.color = '#1976D2';
+                uploadResult.textContent = '正在上传...';
+
+                const response = await fetch('/api/upload-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'iq',
+                        name: studentName,
+                        id: studentId,
+                        age: studentAge,
+                        gender: studentGender,
+                        result: currentResult
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    uploadResult.style.backgroundColor = '#e8f5e8';
+                    uploadResult.style.color = '#2e7d32';
+                    uploadResult.textContent = '成绩上传成功！';
+                    submitted = true; // 标记为已提交
+                } else {
+                    uploadResult.style.backgroundColor = '#ffebee';
+                    uploadResult.style.color = '#c62828';
+                    uploadResult.textContent = `上传失败: ${data.message}`;
+                }
+            } catch (error) {
+                uploadResult.style.display = 'block';
+                uploadResult.style.backgroundColor = '#ffebee';
+                uploadResult.style.color = '#c62828';
+                uploadResult.textContent = '网络异常，请稍后重试！';
+            }
+        }
+    </script>
+
+</body>
+
+</html>
